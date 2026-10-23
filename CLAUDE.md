@@ -42,6 +42,12 @@ AKS Deployment Safeguards inyecta anti-affinity/topology spread y ajusta request
 - Manifiestos con kustomize: `kubectl apply -k lab5` / `kubectl apply -k lab6`.
 - Credenciales: `secrets/lab.env` (generado por `scripts/new-secrets.ps1`, no se sube al repo).
 
+## Acceso público (túnel de Cloudflare, `infra/cloudflared.yaml`)
+Rutas configuradas en el panel de Cloudflare (túnel <TUNNEL_ID>…): grafana.traumado.top → Grafana lab5,
+wordpress.traumado.top, tienda.traumado.top (PrestaShop, back-office /admin-lab6), grafana6.traumado.top.
+PrestaShop: PS_DOMAIN=tienda.traumado.top, SSL activado en ps_configuration y Apache con
+`SetEnvIf X-Forwarded-Proto https HTTPS=on`. El pool lab6 no tiene taint (aloja Flux y complementos de Azure).
+
 ## Cuidado
 - El lab 5 hace una toma de 4 días: no borrar ni reiniciar nada en `lab5` sin preguntar.
 - Apagado al cerrar: `az aks delete -g IOTC -n isano` (o `az aks stop`). Confirmar con el usuario antes.

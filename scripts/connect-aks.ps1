@@ -2,9 +2,17 @@
 # Uso:  .\scripts\connect-aks.ps1
 # Si no hay sesión de Azure válida para la suscripción, pide login por
 # código de dispositivo (abre https://login.microsoft.com/device en el navegador).
+# La suscripción se lee de AZURE_SUBSCRIPTION_ID (variable de entorno o
+# secrets\lab.env, que no va al repo).
 $ErrorActionPreference = 'Stop'
 
-$Subscription = '<AZURE_SUBSCRIPTION_ID>'
+$Subscription = $env:AZURE_SUBSCRIPTION_ID
+$envFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets\lab.env'
+if (-not $Subscription -and (Test-Path $envFile)) {
+    $line = Select-String -Path $envFile -Pattern '^AZURE_SUBSCRIPTION_ID=(.+)$' | Select-Object -First 1
+    if ($line) { $Subscription = $line.Matches[0].Groups[1].Value.Trim() }
+}
+if (-not $Subscription) { throw 'Define AZURE_SUBSCRIPTION_ID (variable de entorno o en secrets\lab.env)' }
 $ResourceGroup = 'IOTC'
 $Cluster = 'isano'
 

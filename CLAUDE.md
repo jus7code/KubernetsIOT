@@ -2,7 +2,8 @@
 
 ## Clúster
 - AKS Automatic `isano`, grupo de recursos `IOTC`, región **brazilsouth**.
-- Suscripción `<AZURE_SUBSCRIPTION_ID>` ("Azure for Students", cuenta UNAB distinta a la de `az login` por defecto).
+- Suscripción "Azure for Students" de una cuenta UNAB distinta a la de `az login` por defecto. Los IDs
+  (suscripción, Telegram, túnel) no van en el repo: están en `CLAUDE.local.md` y `secrets/lab.env`.
 - Auth: Microsoft Entra ID + Azure RBAC → kubectl necesita `kubelogin` en modo `azurecli`.
 - Pool de sistema alojado por Microsoft (`hostedpool`, taint `CriticalAddonsOnly`): no corre cargas del usuario.
 - Karpenter/NAP NO funciona en esta suscripción ("filtered out all available instance types" en todos los
@@ -43,7 +44,7 @@ AKS Deployment Safeguards inyecta anti-affinity/topology spread y ajusta request
 - Credenciales: `secrets/lab.env` (generado por `scripts/new-secrets.ps1`, no se sube al repo).
 
 ## Acceso público (túnel de Cloudflare, `infra/cloudflared.yaml`)
-Rutas configuradas en el panel de Cloudflare (túnel <TUNNEL_ID>…): grafana.traumado.top → Grafana lab5,
+Rutas configuradas en el panel de Cloudflare: grafana.traumado.top → Grafana lab5,
 wordpress.traumado.top, tienda.traumado.top (PrestaShop, back-office /admin-lab6), grafana6.traumado.top.
 PrestaShop: PS_DOMAIN=tienda.traumado.top, SSL activado en ps_configuration y Apache con
 `SetEnvIf X-Forwarded-Proto https HTTPS=on`. El pool lab6 no tiene taint (aloja Flux y complementos de Azure).
@@ -52,7 +53,7 @@ PrestaShop: PS_DOMAIN=tienda.traumado.top, SSL activado en ps_configuration y Ap
 CronJob `reports/daily-report`, todos los días 07:00 America/Bogota: genera «Informe Lab 5» e «Informe Lab 6»
 con datos reales (InfluxDB, Prometheus, API de k8s, precios de Azure), los sube como Google Docs a la carpeta
 «Labs IoT UNAB» de Google Drive (rclone, scope drive.file, mismo documento cada día) y avisa por Telegram
-(<bot de Telegram>, chat <TELEGRAM_CHAT_ID>). Secret `report-secrets` con `scripts/set-report-secrets.ps1`
+(bot y chat en `CLAUDE.local.md`). Secret `report-secrets` con `scripts/set-report-secrets.ps1`
 (token de Drive en `secrets/gdrive-token.json`, Telegram en `secrets/lab.env`).
 Ejecución manual: `kubectl create job report-now -n reports --from=cronjob/daily-report`.
 El texto fijo de los informes (qué falló, persistencia, etc.) está en `reports/app/report.py`.

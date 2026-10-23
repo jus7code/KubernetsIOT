@@ -33,6 +33,9 @@ Todo pod nuevo debe llevar `nodeSelector: {lab: labX}` + toleration `lab=labX:No
 AKS Deployment Safeguards inyecta anti-affinity/topology spread y ajusta requests: los avisos al aplicar son normales.
 
 ## Despliegue
+- Repo: https://github.com/jus7code/KubernetsIOT (público, push por SSH). Flux (extensión AKS, config `labs`)
+  aplica `./lab5` y `./lab6` en cada push a `main`. Para cambiar algo: editar, commit, push; no `kubectl apply`
+  a mano sobre recursos que maneja Flux (los revierte). Secrets, node pools y `prestashop-domain` no están en git.
 - Lab 5: `.\scripts\deploy-lab5.ps1` (MQTT Mosquitto → Telegraf → InfluxDB 2 → Grafana + alerta webhook).
   Forzar alerta: `.\scripts\lab5-forzar-alerta.ps1`; evidencia en `kubectl logs -n lab5 deploy/alert-receiver`.
 - Lab 6: `.\scripts\deploy-lab6.ps1` (WordPress + MariaDB, PrestaShop + MariaDB, Prometheus/kube-state-metrics/Grafana).

@@ -27,6 +27,18 @@ Azure CLI, kubectl y kubelogin (el script de conexión lo instala con winget si 
 powershell -ExecutionPolicy Bypass -File .\scripts\connect-aks.ps1
 ```
 
+## Despliegue continuo (GitOps con Flux)
+El clúster tiene la extensión Flux de AKS apuntando a este repo (rama `main`): cada `git push`
+se aplica solo en ~1 min (`./lab5` y `./lab6` con kustomize, `prune=true`). Preparación única:
+```powershell
+.\cluster\nodepools.ps1            # una máquina por lab
+.\scripts\new-secrets.ps1          # Secrets (no van en git)
+.\scripts\setup-gitops.ps1         # conecta Flux al repo
+.\scripts\set-prestashop-domain.ps1  # IP pública de PrestaShop -> PS_DOMAIN
+```
+Estado: `az k8s-configuration flux show -g IOTC -c isano -t managedClusters -n labs -o table`.
+Los scripts `deploy-lab5.ps1` / `deploy-lab6.ps1` siguen sirviendo para desplegar sin Flux.
+
 ## 2. Lab 5 — MQTT → InfluxDB → Grafana (toma de 4 días)
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\deploy-lab5.ps1

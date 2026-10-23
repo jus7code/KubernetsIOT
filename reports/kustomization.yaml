@@ -1,0 +1,10 @@
+# Informes diarios (Google Drive + Telegram). Lo aplica Flux (Kustomization "reports").
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - k8s/cronjob.yaml
+configMapGenerator:
+  - name: report-app
+    namespace: reports
+    files:
+      - app/report.py

@@ -1,0 +1,112 @@
+# Informes diarios de los Labs 5 y 6 -> Google Drive (Google Docs) + aviso por Telegram.
+# Credenciales en el Secret report-secrets (scripts/set-report-secrets.ps1, fuera de git).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: reports
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reporter
+  namespace: reports
+---
+# Solo lectura de lo que el informe necesita
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: reports-reader
+rules:
+  - apiGroups: [""]
+    resources: [pods, services, persistentvolumeclaims, nodes]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: reports-reader
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: reports-reader }
+subjects:
+  - { kind: ServiceAccount, name: reporter, namespace: reports }
+---
+# Logs del receptor de alertas del lab5 (evidencia de los disparos)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: reports-alert-logs
+  namespace: lab5
+rules:
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: reports-alert-logs
+  namespace: lab5
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: reports-alert-logs }
+subjects:
+  - { kind: ServiceAccount, name: reporter, namespace: reports }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-report
+  namespace: reports
+spec:
+  schedule: "0 7 * * *"
+  timeZone: America/Bogota
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels: { app: daily-report }
+        spec:
+          serviceAccountName: reporter
+          restartPolicy: Never
+          nodeSelector: { lab: lab6 }
+          initContainers:
+            # Copia el binario de rclone a un volumen compartido
+            - name: rclone
+              image: rclone/rclone:1.68.2
+              command: ["cp", "/usr/local/bin/rclone", "/tools/rclone"]
+              resources:
+                requests: { cpu: 10m, memory: 32Mi }
+                limits: { cpu: 200m, memory: 128Mi }
+              volumeMounts:
+                - { name: tools, mountPath: /tools }
+          containers:
+            - name: report
+              image: python:3.12.7-slim
+              command: ["sh", "-c"]
+              args:
+                - pip install --no-cache-dir --quiet --root-user-action=ignore python-docx==1.1.2 requests==2.32.3 &&
+                  exec python -u /app/report.py
+              env:
+                - { name: RCLONE_CONFIG_GDRIVE_TYPE, value: drive }
+                - { name: RCLONE_CONFIG_GDRIVE_SCOPE, value: drive.file }
+                - name: RCLONE_CONFIG_GDRIVE_TOKEN
+                  valueFrom: { secretKeyRef: { name: report-secrets, key: gdrive-token } }
+                - name: INFLUX_TOKEN
+                  valueFrom: { secretKeyRef: { name: report-secrets, key: influx-token } }
+                - name: TELEGRAM_TOKEN
+                  valueFrom: { secretKeyRef: { name: report-secrets, key: telegram-token, optional: true } }
+                - name: TELEGRAM_CHAT_ID
+                  valueFrom: { secretKeyRef: { name: report-secrets, key: telegram-chat-id, optional: true } }
+              resources:
+                requests: { cpu: 100m, memory: 192Mi }
+                limits: { cpu: "1", memory: 512Mi }
+              volumeMounts:
+                - { name: app, mountPath: /app }
+                - { name: tools, mountPath: /tools }
+          volumes:
+            - name: app
+              configMap: { name: report-app }
+            - name: tools
+              emptyDir: {}

@@ -76,6 +76,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-lab6.ps1
 - Grafana del Lab 6: dashboard *Lab 6 · WordPress y PrestaShop en AKS* (pods por portal, CPU, memoria,
   PVC, reinicios), alimentado por Prometheus + kube-state-metrics.
 
+## Usar este repo como modelo en otro clúster
+Este repo está configurado para **el clúster AKS `isano`** y Flux lo aplica tal cual. No hay que modificarlo:
+para montar tu propia copia (Kubernetes local con kind/minikube/k3s u otra nube), haz un **fork** y adapta
+en tu fork lo que depende de Azure o de esta instalación:
+
+| Qué cambiar | Dónde | Por qué |
+|---|---|---|
+| `storageClassName: managed-csi` | PVC de `lab5/k8s` y `lab6/k8s` | Es el StorageClass de Azure Disk. En kind: `standard`; en k3s: `local-path`; en otra nube, el suyo (`kubectl get sc`) |
+| `nodeSelector: { lab: … }` y tolerations | Todos los Deployments | Etiqueta tus nodos (`kubectl label node <nodo> lab=lab5` / `lab=lab6`) y, si quieres aislar el lab5, ponle el taint `lab=lab5:NoSchedule`. Con un solo nodo, etiquétalo con ambos o quita los `nodeSelector` |
+| Services `type: LoadBalancer` | Grafanas, WordPress, PrestaShop | En local no reciben IP sin MetalLB o `minikube tunnel`; usa `NodePort` o `kubectl port-forward` |
+| `tienda.traumado.top` | `PS_DOMAIN` (`set-prestashop-domain.ps1`) y `prestashop-apache` en `lab6/k8s/prestashop.yaml` | Es el dominio de esta instalación; pon el tuyo (o `localhost:<puerto>`) |
+| `infra/cloudflared.yaml` | Túnel de Cloudflare | Opcional; necesita el token de **tu** túnel |
+| `reports/` | Informes diarios | Opcional; usa tu Google Drive (`rclone authorize drive`), tu bot de Telegram, y las URLs/fecha de inicio de `reports/app/report.py` |
+| `scripts/connect-aks.ps1`, `cluster/nodepools.ps1`, `setup-gitops.ps1` | Azure | Solo sirven en AKS. Fuera de Azure usa Flux estándar: `flux bootstrap github --owner=<tú> --repository=<tu-fork> --path=…` o crea una `GitRepository` + `Kustomization` por carpeta (`./lab5`, `./lab6`) |
+
+Lo demás es portable sin cambios: imágenes con versión fija, dashboards y alerta de Grafana como código,
+y `scripts/new-secrets.ps1` (solo usa `kubectl`). En otros clústeres no existen los Deployment Safeguards
+de AKS Automatic, así que no verás sus avisos.
+
 ## Secrets
 Los reales se generan en `secrets/lab.env` (ignorado por git) y se cargan con `scripts/new-secrets.ps1`.
 Los YAML de ejemplo sin valores reales están en `lab5/secrets.example.yaml` y `lab6/secrets.example.yaml`.

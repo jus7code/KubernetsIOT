@@ -1,0 +1,48 @@
+# Túnel de Cloudflare (administrado desde el panel de Cloudflare: las rutas
+# hostname -> servicio se configuran allá, ver README). El token va en el
+# Secret cloudflared-token, que se crea con scripts/set-cloudflared-token.ps1
+# y no se sube al repo.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflared
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflared
+  labels: { app: cloudflared }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: cloudflared }
+  template:
+    metadata:
+      labels: { app: cloudflared }
+    spec:
+      nodeSelector: { lab: lab6 }
+      tolerations:
+        - { key: lab, operator: Equal, value: lab6, effect: NoSchedule }
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2024.12.2
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --metrics
+            - 0.0.0.0:2000
+            - run
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom: { secretKeyRef: { name: cloudflared-token, key: token } }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+          readinessProbe:
+            httpGet: { path: /ready, port: 2000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /ready, port: 2000 }
+            initialDelaySeconds: 20
+            periodSeconds: 30

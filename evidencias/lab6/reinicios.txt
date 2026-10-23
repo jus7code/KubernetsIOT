@@ -1,0 +1,46 @@
+### ANTES del reinicio — 2026-10-23T20:40:51Z
+-- pods
+wordpress/wordpress-79c7b48887-bf2x7 Running 14m 10.244.4.213 aks-lab6-20387522-vmss000000
+wordpress/wordpress-db-cdf9d6556-75pf4 Running 14m 10.244.4.27 aks-lab6-20387522-vmss000000
+prestashop/prestashop-5fbdc6f5cc-4xg7h Running 10m 10.244.4.184 aks-lab6-20387522-vmss000000
+prestashop/prestashop-db-5db7875bc8-b8f79 Running 14m 10.244.4.170 aks-lab6-20387522-vmss000000
+-- WordPress (BD wordpress-db)
+ID	post_title	post_type	post_status	post_date
+6	Prueba Lab 6 – persistencia	post	publish	2026-10-23 15:35:40
+8	Prueba Lab 6 – persistencia	revision	inherit	2026-10-23 15:35:40
+-- PrestaShop (BD prestashop-db)
+id_product	name	active	price	date_add
+20	cabezuca	0	12420.000000	2026-10-23 22:39:39
+19	Customizable mug	1	13.900000	2026-10-23 22:28:07
+18	Hummingbird notebook	1	12.900000	2026-10-23 22:28:07
+-- HTTP
+wordpress post: 200
+
+### REINICIO — 2026-10-23T20:41:12Z
+deployment.apps/wordpress restarted
+deployment.apps/prestashop restarted
+Waiting for deployment "wordpress" rollout to finish: 0 of 1 updated replicas are available...
+deployment "wordpress" successfully rolled out
+Waiting for deployment "prestashop" rollout to finish: 0 of 1 updated replicas are available...
+deployment "prestashop" successfully rolled out
+
+### DESPUÉS del reinicio — 2026-10-23T20:41:49Z
+-- pods
+wordpress/wordpress-6b459867b4-6w92k Running 36s 10.244.4.234 aks-lab6-20387522-vmss000000
+wordpress/wordpress-db-cdf9d6556-75pf4 Running 15m 10.244.4.27 aks-lab6-20387522-vmss000000
+prestashop/prestashop-59d57b86c8-pfmkh Running 35s 10.244.4.222 aks-lab6-20387522-vmss000000
+prestashop/prestashop-db-5db7875bc8-b8f79 Running 15m 10.244.4.170 aks-lab6-20387522-vmss000000
+-- WordPress (BD wordpress-db)
+ID	post_title	post_type	post_status	post_date
+6	Prueba Lab 6 – persistencia	post	publish	2026-10-23 15:35:40
+8	Prueba Lab 6 – persistencia	revision	inherit	2026-10-23 15:35:40
+-- PrestaShop (BD prestashop-db)
+id_product	name	active	price	date_add
+20	cabezuca	0	12420.000000	2026-10-23 22:39:39
+19	Customizable mug	1	13.900000	2026-10-23 22:28:07
+18	Hummingbird notebook	1	12.900000	2026-10-23 22:28:07
+-- HTTP
+wordpress post: 200
+prestashop tienda: 200
+prestashop admin: 200
+

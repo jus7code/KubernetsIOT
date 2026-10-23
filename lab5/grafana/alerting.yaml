@@ -56,8 +56,7 @@ groups:
         execErrState: Error
         for: 1m
         annotations:
-          # $$ escapa la interpolación de variables de entorno del provisioning
-          summary: "Temperatura máxima de los últimos 5 min: {{ humanize $$values.B.Value }} °C (umbral 35 °C)"
+          summary: "Temperatura máxima de los últimos 5 min: {{ humanize $values.B.Value }} °C (umbral 35 °C)"
         labels:
           severity: warning
           lab: lab5

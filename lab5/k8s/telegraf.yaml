@@ -1,0 +1,67 @@
+# Ingesta: suscriptor MQTT (lab5/sensors/#) -> InfluxDB, con la marca de
+# tiempo real de llegada de cada mensaje.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+data:
+  telegraf.conf: |
+    [agent]
+      interval = "10s"
+      flush_interval = "10s"
+      omit_hostname = true
+
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://mosquitto:1883"]
+      topics = ["lab5/sensors/#"]
+      username = "${MQTT_USER}"
+      password = "${MQTT_PASS}"
+      qos = 1
+      client_id = "telegraf-lab5"
+      persistent_session = true
+      data_format = "json"
+      tag_keys = ["device"]
+      name_override = "environment"
+
+    [[outputs.influxdb_v2]]
+      urls = ["http://influxdb:8086"]
+      token = "${INFLUX_TOKEN}"
+      organization = "${INFLUX_ORG}"
+      bucket = "${INFLUX_BUCKET}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegraf
+  labels: { app: telegraf }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: telegraf }
+  template:
+    metadata:
+      labels: { app: telegraf }
+    spec:
+      nodeSelector: { lab: lab5 }
+      tolerations:
+        - { key: lab, operator: Equal, value: lab5, effect: NoSchedule }
+      containers:
+        - name: telegraf
+          image: telegraf:1.32.3
+          envFrom:
+            - configMapRef: { name: lab5-settings }
+          env:
+            - name: MQTT_USER
+              valueFrom: { secretKeyRef: { name: mqtt-auth, key: username } }
+            - name: MQTT_PASS
+              valueFrom: { secretKeyRef: { name: mqtt-auth, key: password } }
+            - name: INFLUX_TOKEN
+              valueFrom: { secretKeyRef: { name: influxdb-auth, key: token } }
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+          volumeMounts:
+            - { name: config, mountPath: /etc/telegraf/telegraf.conf, subPath: telegraf.conf }
+      volumes:
+        - name: config
+          configMap: { name: telegraf-config }

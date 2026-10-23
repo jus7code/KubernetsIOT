@@ -1,0 +1,183 @@
+{
+  "uid": "lab5-ambiente",
+  "title": "Lab 5 · Ambiente de la sala (MQTT → InfluxDB)",
+  "description": "Toma de 4 días del sensor sim-01 publicado por MQTT. Alerta si la temperatura supera 35 °C.",
+  "tags": ["lab5", "mqtt", "influxdb"],
+  "timezone": "America/Bogota",
+  "editable": true,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "time": { "from": "now-4d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Qué mira el operador",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 3 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Temperatura, humedad e iluminación de la sala** (sensor `sim-01`, cada 10 s por MQTT). El operador vigila que la temperatura no pase de **35 °C** (umbral de la alerta, línea roja), que la humedad se mantenga entre 40 y 80 % y que la luz siga el ciclo día/noche. Ventana: últimos 4 días, hora de Colombia."
+      }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Temperatura actual",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 0, "y": 3, "w": 8, "h": 6 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"temperature\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> last()" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius", "min": 0, "max": 50, "decimals": 1, "displayName": "Temperatura",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "blue", "value": null }, { "color": "green", "value": 18 },
+            { "color": "orange", "value": 30 }, { "color": "red", "value": 35 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdMarkers": true, "showThresholdLabels": false }
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Humedad actual",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 8, "y": 3, "w": 8, "h": 6 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"humidity\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> last()" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100, "decimals": 1, "displayName": "Humedad relativa",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "orange", "value": null }, { "color": "green", "value": 40 }, { "color": "orange", "value": 80 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdMarkers": true, "showThresholdLabels": false }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Iluminación actual",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 16, "y": 3, "w": 8, "h": 6 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"illuminance\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> last()" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: lx", "min": 0, "max": 1200, "decimals": 0, "displayName": "Iluminancia",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "#5a5a8c", "value": null }, { "color": "yellow", "value": 100 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Temperatura (°C) · 4 días",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 8 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"temperature\")\n  |> keep(columns: [\"_time\", \"_value\", \"device\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius", "decimals": 1, "displayName": "Temperatura ${__field.labels.device}",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "spanNulls": false,
+                      "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "transparent", "value": null }, { "color": "red", "value": 35 } ] },
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["min", "mean", "max"] }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Humedad relativa (%) · 4 días",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 8 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"humidity\")\n  |> keep(columns: [\"_time\", \"_value\", \"device\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "decimals": 1, "min": 0, "max": 100, "displayName": "Humedad ${__field.labels.device}",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "spanNulls": false },
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["min", "mean", "max"] }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Iluminancia (lx) · 4 días",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 8 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"illuminance\")\n  |> keep(columns: [\"_time\", \"_value\", \"device\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: lx", "decimals": 0, "min": 0, "displayName": "Iluminancia ${__field.labels.device}",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "spanNulls": false },
+          "color": { "mode": "fixed", "fixedColor": "yellow" }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["min", "mean", "max"] }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Puntos guardados en la ventana",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 0, "y": 25, "w": 8, "h": 4 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"temperature\")\n  |> group()\n  |> count()" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "displayName": "Lecturas" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none" }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Primera lectura de la toma",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 8, "y": 25, "w": 8, "h": 4 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: 0)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"temperature\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({ _time: r._time, _value: uint(v: r._time) / uint(v: 1000000) }))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "dateTimeAsLocal", "displayName": "Inicio" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none" }
+    },
+    {
+      "id": 10,
+      "type": "state-timeline",
+      "title": "Huecos en la toma (sin datos por más de 1 min)",
+      "datasource": { "type": "influxdb", "uid": "influxdb-lab5" },
+      "gridPos": { "x": 16, "y": 25, "w": 8, "h": 4 },
+      "targets": [
+        { "refId": "A", "query": "from(bucket: \"lab5\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"environment\" and r._field == \"temperature\")\n  |> group()\n  |> aggregateWindow(every: 1m, fn: count, createEmpty: true)\n  |> map(fn: (r) => ({ _time: r._time, _value: if r._value > 0 then 1 else 0 }))" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Toma",
+          "mappings": [ { "type": "value", "options": { "0": { "text": "Hueco", "color": "red" }, "1": { "text": "OK", "color": "green" } } } ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "showValue": "never", "mergeValues": true, "legend": { "showLegend": false } }
+    }
+  ]
+}

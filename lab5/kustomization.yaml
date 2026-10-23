@@ -1,0 +1,32 @@
+# Lab 5: MQTT -> Telegraf -> InfluxDB -> Grafana, en la máquina del NodePool lab5.
+# Despliegue:  .\scripts\deploy-lab5.ps1   (crea Secrets y luego kubectl apply -k lab5)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lab5
+labels:
+  - pairs: { lab: lab5 }
+    includeSelectors: false
+resources:
+  - k8s/namespace.yaml
+  - k8s/mosquitto.yaml
+  - k8s/influxdb.yaml
+  - k8s/telegraf.yaml
+  - k8s/apps.yaml
+  - k8s/grafana.yaml
+configMapGenerator:
+  - name: lab5-settings
+    literals:
+      - INFLUX_ORG=unab
+      - INFLUX_BUCKET=lab5
+  - name: lab5-app
+    files:
+      - app/publisher.py
+      - app/alert_receiver.py
+  - name: grafana-provisioning
+    files:
+      - grafana/datasources.yaml
+      - grafana/dashboards.yaml
+      - grafana/alerting.yaml
+  - name: grafana-dashboards
+    files:
+      - lab5.json=grafana/lab5-dashboard.json

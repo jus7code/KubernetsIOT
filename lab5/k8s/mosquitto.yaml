@@ -1,0 +1,82 @@
+# Broker MQTT. Solo dentro del clúster (ClusterIP), con usuario y contraseña.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous false
+    password_file /mosquitto/auth/passwd
+    persistence false
+    log_dest stdout
+    log_type error
+    log_type warning
+    log_type notice
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  labels: { app: mosquitto }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: mosquitto }
+  template:
+    metadata:
+      labels: { app: mosquitto }
+    spec:
+      nodeSelector: { lab: lab5 }
+      tolerations:
+        - { key: lab, operator: Equal, value: lab5, effect: NoSchedule }
+      initContainers:
+        # Genera el archivo de contraseñas con hash a partir del Secret
+        - name: passwd
+          image: eclipse-mosquitto:2.0.20
+          command: ["sh", "-c"]
+          args:
+            - mosquitto_passwd -c -b /mosquitto/auth/passwd "$MQTT_USER" "$MQTT_PASS" &&
+              chown mosquitto:mosquitto /mosquitto/auth/passwd && chmod 0700 /mosquitto/auth/passwd
+          env:
+            - name: MQTT_USER
+              valueFrom: { secretKeyRef: { name: mqtt-auth, key: username } }
+            - name: MQTT_PASS
+              valueFrom: { secretKeyRef: { name: mqtt-auth, key: password } }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+          volumeMounts:
+            - { name: auth, mountPath: /mosquitto/auth }
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2.0.20
+          ports:
+            - { name: mqtt, containerPort: 1883 }
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+          readinessProbe:
+            tcpSocket: { port: 1883 }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 1883 }
+            periodSeconds: 20
+          volumeMounts:
+            - { name: config, mountPath: /mosquitto/config/mosquitto.conf, subPath: mosquitto.conf }
+            - { name: auth, mountPath: /mosquitto/auth }
+      volumes:
+        - name: config
+          configMap: { name: mosquitto-config }
+        - name: auth
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+spec:
+  type: ClusterIP
+  selector: { app: mosquitto }
+  ports:
+    - { name: mqtt, port: 1883, targetPort: 1883 }

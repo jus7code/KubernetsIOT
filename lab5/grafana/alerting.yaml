@@ -1,0 +1,63 @@
+# Alerta de umbral: temperatura máxima de los últimos 5 min > 35 °C durante 1 min.
+# Acción: webhook al alert-receiver del namespace lab5 (queda en sus logs).
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: lab5-webhook
+    receivers:
+      - uid: lab5-webhook
+        type: webhook
+        settings:
+          url: http://alert-receiver.lab5.svc.cluster.local:8080/alert
+          httpMethod: POST
+policies:
+  - orgId: 1
+    receiver: lab5-webhook
+    group_by: ["grafana_folder", "alertname"]
+    group_wait: 10s
+    group_interval: 1m
+    repeat_interval: 1h
+groups:
+  - orgId: 1
+    name: lab5-umbrales
+    folder: Lab 5
+    interval: 1m
+    rules:
+      - uid: lab5-temp-alta
+        title: Temperatura alta (> 35 °C)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: influxdb-lab5
+            model:
+              refId: A
+              query: |-
+                from(bucket: "lab5")
+                  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                  |> filter(fn: (r) => r._measurement == "environment" and r._field == "temperature")
+                  |> keep(columns: ["_time", "_value", "device"])
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: max
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [35] }
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          # $$ escapa la interpolación de variables de entorno del provisioning
+          summary: "Temperatura máxima de los últimos 5 min: {{ humanize $$values.B.Value }} °C (umbral 35 °C)"
+        labels:
+          severity: warning
+          lab: lab5

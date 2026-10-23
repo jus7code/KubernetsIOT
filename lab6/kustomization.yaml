@@ -1,0 +1,22 @@
+# Lab 6: WordPress y PrestaShop (cada uno con su MariaDB) + monitoreo, en las
+# máquinas del NodePool lab6. Despliegue:  .\scripts\deploy-lab6.ps1
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs: { lab: lab6 }
+    includeSelectors: false
+resources:
+  - k8s/namespaces.yaml
+  - k8s/wordpress.yaml
+  - k8s/prestashop.yaml
+  - k8s/monitoring.yaml
+configMapGenerator:
+  - name: grafana-provisioning
+    namespace: monitoring
+    files:
+      - grafana/datasources.yaml
+      - grafana/dashboards.yaml
+  - name: grafana-dashboards
+    namespace: monitoring
+    files:
+      - lab6.json=grafana/lab6-dashboard.json

@@ -1,0 +1,88 @@
+# Publicador MQTT y receptor del webhook de alertas. El código Python viene
+# del ConfigMap lab5-app (generado por kustomize desde lab5/app/).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publisher
+  labels: { app: publisher }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: publisher }
+  template:
+    metadata:
+      labels: { app: publisher }
+    spec:
+      nodeSelector: { lab: lab5 }
+      tolerations:
+        - { key: lab, operator: Equal, value: lab5, effect: NoSchedule }
+      containers:
+        - name: publisher
+          image: python:3.12.7-slim
+          command: ["sh", "-c"]
+          args:
+            - pip install --no-cache-dir --quiet --root-user-action=ignore paho-mqtt==2.1.0 &&
+              exec python -u /app/publisher.py
+          env:
+            - { name: MQTT_HOST, value: mosquitto }
+            - { name: DEVICE_ID, value: sim-01 }
+            - { name: PUBLISH_INTERVAL, value: "10" }
+            - name: MQTT_USER
+              valueFrom: { secretKeyRef: { name: mqtt-auth, key: username } }
+            - name: MQTT_PASS
+              valueFrom: { secretKeyRef: { name: mqtt-auth, key: password } }
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+          volumeMounts:
+            - { name: app, mountPath: /app }
+      volumes:
+        - name: app
+          configMap: { name: lab5-app }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-receiver
+  labels: { app: alert-receiver }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: alert-receiver }
+  template:
+    metadata:
+      labels: { app: alert-receiver }
+    spec:
+      nodeSelector: { lab: lab5 }
+      tolerations:
+        - { key: lab, operator: Equal, value: lab5, effect: NoSchedule }
+      containers:
+        - name: alert-receiver
+          image: python:3.12.7-slim
+          command: ["python", "-u", "/app/alert_receiver.py"]
+          ports:
+            - { name: http, containerPort: 8080 }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 128Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 8080 }
+            periodSeconds: 30
+          volumeMounts:
+            - { name: app, mountPath: /app }
+      volumes:
+        - name: app
+          configMap: { name: lab5-app }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-receiver
+spec:
+  type: ClusterIP
+  selector: { app: alert-receiver }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wordpress
+  labels: { lab: lab6, portal: wordpress }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prestashop
+  labels: { lab: lab6, portal: prestashop }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels: { lab: lab6 }

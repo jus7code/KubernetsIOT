@@ -1,0 +1,85 @@
+{
+  "uid": "lab6-portales",
+  "title": "Lab 6 · WordPress y PrestaShop en AKS",
+  "description": "Workloads de los dos portales y sus bases de datos en el clúster isano.",
+  "tags": ["lab6", "aks", "wordpress", "prestashop"],
+  "timezone": "America/Bogota",
+  "editable": true,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "time": { "from": "now-3h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "text", "title": "Qué se ve aquí",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 3 },
+      "options": { "mode": "markdown", "content": "Dos portales en el **mismo AKS**, cada uno en su namespace con su propia MariaDB: **wordpress** (`wordpress` + `wordpress-db`) y **prestashop** (`prestashop` + `prestashop-db`). Los reinicios del Deployment se ven como pods nuevos y en la columna de reinicios / inicio del pod." }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Pods Running por portal",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 0, "y": 3, "w": 8, "h": 5 },
+      "targets": [ { "refId": "A", "expr": "sum by (namespace) (kube_pod_status_phase{namespace=~\"wordpress|prestashop\", phase=\"Running\"})", "legendFormat": "{{namespace}}", "instant": true } ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Deployments disponibles",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 8, "y": 3, "w": 8, "h": 5 },
+      "targets": [ { "refId": "A", "expr": "kube_deployment_status_replicas_available{namespace=~\"wordpress|prestashop\"}", "legendFormat": "{{namespace}}/{{deployment}}", "instant": true } ],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Volúmenes (PVC) Bound",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 16, "y": 3, "w": 8, "h": 5 },
+      "targets": [ { "refId": "A", "expr": "kube_persistentvolumeclaim_status_phase{namespace=~\"wordpress|prestashop\", phase=\"Bound\"}", "legendFormat": "{{namespace}}/{{persistentvolumeclaim}}", "instant": true } ],
+      "fieldConfig": { "defaults": { "unit": "short", "mappings": [ { "type": "value", "options": { "0": { "text": "No", "color": "red" }, "1": { "text": "Bound", "color": "green" } } } ] }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" }
+    },
+    {
+      "id": 5, "type": "table", "title": "Pods de los dos portales",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 7 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace, pod, node) (kube_pod_info{namespace=~\"wordpress|prestashop\"})", "format": "table", "instant": true },
+        { "refId": "B", "expr": "max by (namespace, pod) (kube_pod_start_time{namespace=~\"wordpress|prestashop\"}) * 1000", "format": "table", "instant": true },
+        { "refId": "C", "expr": "sum by (namespace, pod) (kube_pod_container_status_restarts_total{namespace=~\"wordpress|prestashop\"})", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "pod", "mode": "outer" } },
+        { "id": "organize", "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true, "Value #A": true, "namespace 2": true, "namespace 3": true },
+            "renameByName": { "namespace 1": "Portal", "namespace": "Portal", "pod": "Pod", "node": "Nodo", "Value #B": "Inicio del pod", "Value #C": "Reinicios de contenedor" } } }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Inicio del pod" }, "properties": [ { "id": "unit", "value": "dateTimeAsLocal" } ] } ] },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "Portal" } ] }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "CPU por pod (cores)",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 8 },
+      "targets": [ { "refId": "A", "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~\"wordpress|prestashop\", container!=\"\", container!=\"POD\"}[2m]))", "legendFormat": "{{namespace}} / {{pod}}" } ],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 3, "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Memoria por pod (working set)",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 8 },
+      "targets": [ { "refId": "A", "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~\"wordpress|prestashop\", container!=\"\", container!=\"POD\"})", "legendFormat": "{{namespace}} / {{pod}}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 8, "type": "state-timeline", "title": "Pods Ready en el tiempo (los reinicios aparecen como cambio de pod)",
+      "datasource": { "type": "prometheus", "uid": "prometheus-lab6" },
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 9 },
+      "targets": [ { "refId": "A", "expr": "max by (namespace, pod) (kube_pod_status_ready{namespace=~\"wordpress|prestashop\", condition=\"true\"})", "legendFormat": "{{namespace}} / {{pod}}" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+        "mappings": [ { "type": "value", "options": { "0": { "text": "No listo" }, "1": { "text": "Ready" } } } ] }, "overrides": [] },
+      "options": { "showValue": "never", "mergeValues": true, "legend": { "showLegend": false } }
+    }
+  ]
+}

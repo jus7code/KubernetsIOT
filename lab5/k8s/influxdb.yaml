@@ -1,0 +1,75 @@
+# TSDB: InfluxDB 2 con disco persistente. Solo ClusterIP.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: influxdb-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: managed-csi
+  resources:
+    requests: { storage: 8Gi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb
+  labels: { app: influxdb }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: influxdb }
+  template:
+    metadata:
+      labels: { app: influxdb }
+    spec:
+      nodeSelector: { lab: lab5 }
+      tolerations:
+        - { key: lab, operator: Equal, value: lab5, effect: NoSchedule }
+      containers:
+        - name: influxdb
+          image: influxdb:2.7.10
+          ports:
+            - { name: http, containerPort: 8086 }
+          envFrom:
+            - configMapRef: { name: lab5-settings }
+          env:
+            # Setup inicial automático (solo corre si el volumen está vacío)
+            - { name: DOCKER_INFLUXDB_INIT_MODE, value: setup }
+            - name: DOCKER_INFLUXDB_INIT_ORG
+              valueFrom: { configMapKeyRef: { name: lab5-settings, key: INFLUX_ORG } }
+            - name: DOCKER_INFLUXDB_INIT_BUCKET
+              valueFrom: { configMapKeyRef: { name: lab5-settings, key: INFLUX_BUCKET } }
+            - { name: DOCKER_INFLUXDB_INIT_RETENTION, value: 30d }
+            - name: DOCKER_INFLUXDB_INIT_USERNAME
+              valueFrom: { secretKeyRef: { name: influxdb-auth, key: username } }
+            - name: DOCKER_INFLUXDB_INIT_PASSWORD
+              valueFrom: { secretKeyRef: { name: influxdb-auth, key: password } }
+            - name: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN
+              valueFrom: { secretKeyRef: { name: influxdb-auth, key: token } }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "1", memory: 2Gi }
+          readinessProbe:
+            httpGet: { path: /health, port: 8086 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8086 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/influxdb2, subPath: data }
+            - { name: data, mountPath: /etc/influxdb2, subPath: config }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: influxdb-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+spec:
+  type: ClusterIP
+  selector: { app: influxdb }
+  ports:
+    - { name: http, port: 8086, targetPort: 8086 }

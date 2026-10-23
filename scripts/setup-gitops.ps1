@@ -17,7 +17,8 @@ az k8s-configuration flux create -g $rg -c $cluster -t managedClusters `
     -n labs --namespace flux-system --scope cluster `
     -u $repo --branch main --interval 1m `
     --kustomization name=lab5 path=./lab5 prune=true sync_interval=1m `
-    --kustomization name=lab6 path=./lab6 prune=true sync_interval=1m
+    --kustomization name=lab6 path=./lab6 prune=true sync_interval=1m `
+    --kustomization name=reports path=./reports prune=true sync_interval=1m
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear la configuración de Flux' }
 
 az k8s-configuration flux show -g $rg -c $cluster -t managedClusters -n labs `

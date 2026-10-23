@@ -48,6 +48,16 @@ wordpress.traumado.top, tienda.traumado.top (PrestaShop, back-office /admin-lab6
 PrestaShop: PS_DOMAIN=tienda.traumado.top, SSL activado en ps_configuration y Apache con
 `SetEnvIf X-Forwarded-Proto https HTTPS=on`. El pool lab6 no tiene taint (aloja Flux y complementos de Azure).
 
+## Informes diarios (`reports/`, Flux kustomization `reports`)
+CronJob `reports/daily-report`, todos los días 07:00 America/Bogota: genera «Informe Lab 5» e «Informe Lab 6»
+con datos reales (InfluxDB, Prometheus, API de k8s, precios de Azure), los sube como Google Docs a la carpeta
+«Labs IoT UNAB» de Google Drive (rclone, scope drive.file, mismo documento cada día) y avisa por Telegram
+(<bot de Telegram>, chat <TELEGRAM_CHAT_ID>). Secret `report-secrets` con `scripts/set-report-secrets.ps1`
+(token de Drive en `secrets/gdrive-token.json`, Telegram en `secrets/lab.env`).
+Ejecución manual: `kubectl create job report-now -n reports --from=cronjob/daily-report`.
+El texto fijo de los informes (qué falló, persistencia, etc.) está en `reports/app/report.py`.
+rclone avisa que su client_id compartido de Google se retira en 2026: si la subida falla, crear uno propio.
+
 ## Cuidado
 - El lab 5 hace una toma de 4 días: no borrar ni reiniciar nada en `lab5` sin preguntar.
 - Apagado al cerrar: `az aks delete -g IOTC -n isano` (o `az aks stop`). Confirmar con el usuario antes.

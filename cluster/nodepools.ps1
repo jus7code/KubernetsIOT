@@ -19,8 +19,12 @@ $rg = 'IOTC'; $cluster = 'isano'
 $existing = az aks nodepool list -g $rg --cluster-name $cluster --query '[].name' -o tsv
 $localDnsOff = Join-Path $env:TEMP 'localdns-off.json'
 [IO.File]::WriteAllText($localDnsOff, '{"mode":"Disabled"}')
+#
+# lab6 va SIN taint: los complementos del clúster que no viven en el pool
+# alojado (Flux, agentes de Azure Monitor, Azure Policy) necesitan un nodo
+# general y caen ahí. Los pods del lab6 igual se fijan con nodeSelector lab=lab6.
 $pools = @(
-    @{ name = 'lab5'; size = 'Standard_D2s_v4'; extra = @('--localdns-config', $localDnsOff) },
+    @{ name = 'lab5'; size = 'Standard_D2s_v4'; extra = @('--localdns-config', $localDnsOff, '--node-taints', 'lab=lab5:NoSchedule') },
     @{ name = 'lab6'; size = 'Standard_D4ds_v4'; extra = @() }
 )
 foreach ($p in $pools) {
@@ -28,7 +32,7 @@ foreach ($p in $pools) {
     $extra = $p.extra
     az aks nodepool add -g $rg --cluster-name $cluster -n $p.name --mode User `
         --node-vm-size $p.size --node-count 1 `
-        --labels "lab=$($p.name)" --node-taints "lab=$($p.name):NoSchedule" @extra -o none
+        --labels "lab=$($p.name)" @extra -o none
     if ($LASTEXITCODE -ne 0) { throw "No se pudo crear el pool $($p.name)" }
 }
 kubectl get nodes -L lab,node.kubernetes.io/instance-type

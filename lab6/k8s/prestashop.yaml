@@ -3,6 +3,18 @@
 # = IP pública del Service, que deploy-lab6.ps1 guarda en el ConfigMap
 # prestashop-domain una vez Azure asigna la IP.
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prestashop-apache
+  namespace: prestashop
+data:
+  # cloudflared reenvía en HTTP con X-Forwarded-Proto: https; así PHP ve
+  # HTTPS=on y PrestaShop no redirige a http:// ni entra en bucle.
+  forwarded-https.conf: |
+    SetEnvIf X-Forwarded-Proto "^https$" HTTPS=on
+    ServerName tienda.traumado.top
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prestashop-db-data
@@ -117,7 +129,8 @@ spec:
               valueFrom: { secretKeyRef: { name: prestashop-db, key: password } }
             - { name: PS_INSTALL_AUTO, value: "1" }
             - { name: PS_ERASE_DB, value: "0" }
-            - { name: PS_ENABLE_SSL, value: "0" }
+            # HTTPS lo termina Cloudflare (túnel); ver prestashop-apache abajo
+            - { name: PS_ENABLE_SSL, value: "1" }
             - { name: PS_LANGUAGE, value: es }
             - { name: PS_COUNTRY, value: CO }
             - { name: PS_FOLDER_ADMIN, value: admin-lab6 }
@@ -141,9 +154,12 @@ spec:
             periodSeconds: 30
           volumeMounts:
             - { name: html, mountPath: /var/www/html, subPath: html }
+            - { name: apache, mountPath: /etc/apache2/conf-enabled/forwarded-https.conf, subPath: forwarded-https.conf }
       volumes:
         - name: html
           persistentVolumeClaim: { claimName: prestashop-html }
+        - name: apache
+          configMap: { name: prestashop-apache }
 ---
 apiVersion: v1
 kind: Service
